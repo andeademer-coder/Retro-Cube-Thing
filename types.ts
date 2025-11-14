@@ -1,5 +1,5 @@
 export type CellValue = keyof typeof import('./constants').TETROMINOES | 0;
-export type Cell = [CellValue, 'clear' | 'merged' | 'ghost'];
+export type Cell = [CellValue, 'clear' | 'merged' | 'ghost' | 'cracking'];
 export type Board = Cell[][];
 
 export type Player = {
@@ -10,11 +10,12 @@ export type Player = {
 
 export type TetrominoShape = {
   shape: CellValue[][];
-  color: string;
+  colorClass: string;
+  colorValue: string;
 };
 
 export type TetrominoesMap = {
-  0: { shape: [[0]]; color: string; };
+  0: { shape: [[0]]; colorClass: string; colorValue: string; };
   I: TetrominoShape;
   J: TetrominoShape;
   L: TetrominoShape;
@@ -22,4 +23,16 @@ export type TetrominoesMap = {
   S: TetrominoShape;
   T: TetrominoShape;
   Z: TetrominoShape;
+};
+
+export type Particle = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  color: string;
+  size: number;
+  rotation: number;
+  rotationSpeed: number;
+  isSquare: boolean;
 };

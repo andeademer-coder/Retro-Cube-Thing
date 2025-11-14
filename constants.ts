@@ -1,11 +1,10 @@
-
 import type { TetrominoesMap, CellValue } from './types';
 
 export const BOARD_WIDTH: number = 10;
 export const BOARD_HEIGHT: number = 20;
 
 export const TETROMINOES: TetrominoesMap = {
-  0: { shape: [[0]], color: 'bg-transparent' },
+  0: { shape: [[0]], colorClass: 'bg-transparent', colorValue: 'transparent' },
   I: {
     shape: [
       [0, 'I', 0, 0],
@@ -13,7 +12,8 @@ export const TETROMINOES: TetrominoesMap = {
       [0, 'I', 0, 0],
       [0, 'I', 0, 0],
     ] as CellValue[][],
-    color: 'bg-cyan-500',
+    colorClass: 'bg-cyan-500',
+    colorValue: '#06b6d4',
   },
   J: {
     shape: [
@@ -21,7 +21,8 @@ export const TETROMINOES: TetrominoesMap = {
       [0, 'J', 0],
       ['J', 'J', 0],
     ] as CellValue[][],
-    color: 'bg-blue-500',
+    colorClass: 'bg-blue-500',
+    colorValue: '#3b82f6',
   },
   L: {
     shape: [
@@ -29,14 +30,16 @@ export const TETROMINOES: TetrominoesMap = {
       [0, 'L', 0],
       [0, 'L', 'L'],
     ] as CellValue[][],
-    color: 'bg-orange-500',
+    colorClass: 'bg-orange-500',
+    colorValue: '#f97316',
   },
   O: {
     shape: [
       ['O', 'O'],
       ['O', 'O'],
     ] as CellValue[][],
-    color: 'bg-yellow-500',
+    colorClass: 'bg-yellow-500',
+    colorValue: '#eab308',
   },
   S: {
     shape: [
@@ -44,7 +47,8 @@ export const TETROMINOES: TetrominoesMap = {
       ['S', 'S', 0],
       [0, 0, 0],
     ] as CellValue[][],
-    color: 'bg-green-500',
+    colorClass: 'bg-green-500',
+    colorValue: '#22c55e',
   },
   T: {
     shape: [
@@ -52,7 +56,8 @@ export const TETROMINOES: TetrominoesMap = {
       ['T', 'T', 'T'],
       [0, 'T', 0],
     ] as CellValue[][],
-    color: 'bg-purple-500',
+    colorClass: 'bg-purple-500',
+    colorValue: '#8b5cf6',
   },
   Z: {
     shape: [
@@ -60,7 +65,8 @@ export const TETROMINOES: TetrominoesMap = {
       [0, 'Z', 'Z'],
       [0, 0, 0],
     ] as CellValue[][],
-    color: 'bg-red-500',
+    colorClass: 'bg-red-500',
+    colorValue: '#ef4444',
   },
 };
 
