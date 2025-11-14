@@ -1,9 +1,9 @@
 
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { BOARD_WIDTH, BOARD_HEIGHT, TETROMINOES, LINE_POINTS } from './constants';
-import type { Board, Player, Cell, CellValue, Particle, DebrisParticle, SmokeParticle } from './types';
+import type { Board, Player, Cell, CellValue, Particle, DebrisParticle, SmokeParticle, BackgroundTheme } from './types';
 import ParticleCanvas from './ParticleCanvas';
+import BackgroundCanvas from './BackgroundCanvas';
 
 // Helper Functions
 const createBoard = (): Board => Array.from(Array(BOARD_HEIGHT), () => new Array(BOARD_WIDTH).fill([0, 'clear']));
@@ -61,7 +61,7 @@ interface BoardProps {
   board: Board;
 }
 const GameBoard: React.FC<BoardProps> = ({ board }) => (
-  <div className="relative grid grid-cols-10 grid-rows-20 gap-0 border-2 border-gray-600 bg-gray-800/80">
+  <div className="relative grid grid-cols-10 grid-rows-20 gap-0 border-2 border-gray-600 bg-transparent">
     {board.map((row, y) =>
       row.map((cell, x) => <MemoizedCell key={`${y}-${x}`} cell={cell} />)
     )}
@@ -123,7 +123,8 @@ const Modal: React.FC<ModalProps> = ({ title, children }) => (
     </div>
 );
 
-const MAX_PARTICLES = 500;
+const MAX_PARTICLES = 800;
+const THEMES: BackgroundTheme[] = ['FOREST', 'WASTELAND', 'VOLCANIC', 'SPACE'];
 
 const App: React.FC = () => {
     const [board, setBoard] = useState<Board>(() => createBoard());
@@ -142,6 +143,7 @@ const App: React.FC = () => {
     const [particles, setParticles] = useState<Particle[]>([]);
     const [isAnimating, setIsAnimating] = useState(false);
     const [showBazinga, setShowBazinga] = useState(false);
+    const [backgroundTheme, setBackgroundTheme] = useState<BackgroundTheme>('SPACE');
 
     const gameAreaRef = useRef<HTMLDivElement>(null);
     const dropIntervalRef = useRef<number | null>(null);
@@ -176,6 +178,9 @@ const App: React.FC = () => {
         setLines(0);
         setLevel(1);
         setParticles([]);
+        
+        const randomTheme = THEMES[Math.floor(Math.random() * THEMES.length)];
+        setBackgroundTheme(randomTheme);
         
         const firstPiece = randomTetromino();
 
@@ -225,12 +230,19 @@ const App: React.FC = () => {
             for (let x = 0; x < BOARD_WIDTH; x++) {
                 const cellValue = boardState[y][x][0];
                 if (cellValue !== 0) {
-                    const color = TETROMINOES[cellValue].colorValue;
-                    const fragmentCount = 8 + Math.floor(Math.random() * 5); // 8-12 fragments per block
+                    const blockColor = TETROMINOES[cellValue].colorValue;
+                    const fragmentCount = 8 + Math.floor(Math.random() * 5);
+
+                    // --- Theme-specific Debris ---
+                    let debrisColor = blockColor;
+                    if (backgroundTheme === 'FOREST') debrisColor = ['#8B4513', '#A0522D', '#5C4033'][Math.floor(Math.random() * 3)];
+                    if (backgroundTheme === 'WASTELAND') debrisColor = ['#9c7b4f', '#8c6d3f', '#7b5e2e'][Math.floor(Math.random() * 3)];
+                    if (backgroundTheme === 'VOLCANIC') debrisColor = ['#2E1A1A', '#3A1F1F', '#1B0D0D'][Math.floor(Math.random() * 3)];
+                    if (backgroundTheme === 'SPACE') debrisColor = ['#AEC6CF', '#B6D0E2', '#C4D7E0'][Math.floor(Math.random() * 3)];
+
                     for (let i = 0; i < fragmentCount; i++) {
                         const particleX = x + Math.random();
                         const particleY = y + Math.random();
-                        
                         const baseRadius = (Math.random() * 0.4 + 0.1);
                         const { points, radius } = generateChippedShape(baseRadius);
 
@@ -240,7 +252,7 @@ const App: React.FC = () => {
                             y: particleY,
                             vx: (particleX - (x + 0.5)) * 1.8 + (Math.random() - 0.5) * 0.8,
                             vy: (particleY - (y + 0.5)) * 1.8 - Math.random() * 1.5,
-                            color: color,
+                            color: debrisColor,
                             shapePoints: points,
                             boundingRadius: radius,
                             rotation: Math.random() * Math.PI * 2,
@@ -249,110 +261,89 @@ const App: React.FC = () => {
                         });
                     }
 
-                    const smokeCount = 10 + Math.floor(Math.random() * 8); // 10-18 smoke particles per block
-                    for (let i = 0; i < smokeCount; i++) {
-                        const life = 120 + Math.random() * 60; // 2-3 seconds at 60fps
-                        newParticles.push({
-                            type: 'smoke',
-                            x: x + 0.25 + Math.random() * 0.5,
-                            y: y + Math.random() * 0.5,
-                            vx: (Math.random() - 0.5) * 0.01,
-                            vy: -(Math.random() * 0.08 + 0.04),
-                            shade: 180 + Math.random() * 50,
-                            radius: Math.random() * 0.2 + 0.05,
-                            life: life,
-                            initialLife: life,
-                        });
+                    // --- Theme-specific Secondary Particles ---
+                    const secondaryCount = 12 + Math.floor(Math.random() * 8);
+                    for (let i = 0; i < secondaryCount; i++) {
+                        const life = 120 + Math.random() * 60; // 2-3 seconds
+                        switch (backgroundTheme) {
+                            case 'FOREST':
+                                newParticles.push({
+                                    type: 'leaf',
+                                    x: x + 0.25 + Math.random() * 0.5,
+                                    y: y + Math.random() * 0.5,
+                                    vx: (Math.random() - 0.5) * 0.03,
+                                    vy: (Math.random() * 0.02 + 0.01),
+                                    size: 0.1 + Math.random() * 0.15,
+                                    life: life,
+                                    initialLife: life,
+                                    rotation: Math.random() * Math.PI * 2,
+                                    rotationSpeed: (Math.random() - 0.5) * 0.05,
+                                    flutter: Math.random() * 0.05,
+                                    color: ['#228B22', '#32CD32', '#9ACD32'][Math.floor(Math.random() * 3)],
+                                });
+                                break;
+                            case 'WASTELAND':
+                                newParticles.push({
+                                    type: 'smoke',
+                                    x: x + 0.25 + Math.random() * 0.5,
+                                    y: y + Math.random() * 0.5,
+                                    vx: (Math.random() - 0.5) * 0.015,
+                                    vy: -(Math.random() * 0.03 + 0.01),
+                                    radius: Math.random() * 0.2 + 0.05,
+                                    life: life,
+                                    initialLife: life,
+                                    color: { r: 210, g: 180, b: 140 }, // Sandy color
+                                });
+                                break;
+                            case 'VOLCANIC':
+                                newParticles.push({
+                                    type: 'smoke',
+                                    x: x + 0.25 + Math.random() * 0.5,
+                                    y: y + Math.random() * 0.5,
+                                    vx: (Math.random() - 0.5) * 0.01,
+                                    vy: -(Math.random() * 0.08 + 0.04),
+                                    radius: Math.random() * 0.2 + 0.05,
+                                    life: life,
+                                    initialLife: life,
+                                    color: { r: 50, g: 50, b: 50 }, // Dark smoke
+                                });
+                                if (i % 2 === 0) {
+                                    newParticles.push({
+                                        type: 'ember',
+                                        x: x + 0.25 + Math.random() * 0.5,
+                                        y: y + Math.random(),
+                                        vx: (Math.random() - 0.5) * 0.02,
+                                        vy: -(Math.random() * 0.1 + 0.05),
+                                        radius: Math.random() * 0.08 + 0.03,
+                                        life: life * 0.8,
+                                        initialLife: life * 0.8,
+                                    });
+                                }
+                                break;
+                            case 'SPACE':
+                                newParticles.push({
+                                    type: 'sparkle',
+                                    x: x + 0.1 + Math.random() * 0.8,
+                                    y: y + 0.1 + Math.random() * 0.8,
+                                    radius: 0.05 + Math.random() * 0.2,
+                                    life: 30 + Math.random() * 30,
+                                    initialLife: 60,
+                                    color: ['#FFFFFF', '#ADD8E6', '#F0F8FF'][Math.floor(Math.random() * 3)],
+                                });
+                                break;
+                        }
                     }
                 }
             }
         });
         setParticles(prev => [...prev, ...newParticles].slice(-MAX_PARTICLES));
-    }, []);
+    }, [backgroundTheme]);
 
 
     const handlePieceLanded = useCallback((landedPlayer: Player) => {
-        // 1. Update particles based on impact: shatter and nudge
-        setParticles(currentParticles => {
-            const particlesToShatter: DebrisParticle[] = [];
-            const playerBlocks: {x: number, y: number}[] = [];
+        // Particle interaction logic removed.
 
-            landedPlayer.tetromino.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value !== 0) {
-                        const boardY = y + landedPlayer.pos.y;
-                        const boardX = x + landedPlayer.pos.x;
-                        playerBlocks.push({ x: boardX, y: boardY });
-                    }
-                });
-            });
-            
-            const remainingParticles = currentParticles.filter(p => {
-                if (p.type === 'debris') {
-                    const pGridX = Math.floor(p.x);
-                    const pGridY = Math.floor(p.y);
-                    const shouldShatter = playerBlocks.some(block => block.x === pGridX && block.y === pGridY);
-                    if (shouldShatter) {
-                        particlesToShatter.push(p);
-                        return false;
-                    }
-                }
-                return true;
-            });
-
-            const newFragments: DebrisParticle[] = [];
-            if (particlesToShatter.length > 0) {
-                particlesToShatter.forEach(shatteredParticle => {
-                    const count = shatteredParticle.boundingRadius > 0.15 ? 4 : 2; // Shatter into smaller pieces if it was big
-                    for (let i = 0; i < count; i++) {
-                        const baseRadius = shatteredParticle.boundingRadius * 0.6;
-                        const { points, radius } = generateChippedShape(baseRadius);
-                        newFragments.push({
-                            type: 'debris',
-                            x: shatteredParticle.x + (Math.random() - 0.5) * 0.5,
-                            y: shatteredParticle.y + (Math.random() - 0.5) * 0.5,
-                            vx: (Math.random() - 0.5) * 0.5,
-                            vy: (Math.random() - 0.5) * 0.5,
-                            color: shatteredParticle.color,
-                            shapePoints: points,
-                            boundingRadius: radius,
-                            rotation: Math.random() * Math.PI * 2,
-                            rotationSpeed: (Math.random() - 0.5) * 0.4,
-                            shade: shatteredParticle.shade,
-                        });
-                    }
-                });
-            }
-            
-            // Nudge nearby non-shattered particles
-            const nudgedParticles = remainingParticles.map(p => {
-                if (p.type === 'debris') {
-                     let minDistance = Infinity;
-                     for (const block of playerBlocks) {
-                         const dist = Math.sqrt(Math.pow(block.x + 0.5 - p.x, 2) + Math.pow(block.y + 0.5 - p.y, 2));
-                         if (dist < minDistance) {
-                             minDistance = dist;
-                         }
-                     }
-
-                     const nudgeRadius = 2.5;
-                     if (minDistance < nudgeRadius) {
-                         const impulseStrength = (nudgeRadius - minDistance) / nudgeRadius;
-                         return {
-                            ...p,
-                            vx: p.vx + (Math.random() - 0.5) * impulseStrength * 0.8,
-                            vy: p.vy - Math.random() * impulseStrength * 1.0,
-                            rotationSpeed: p.rotationSpeed + (Math.random() - 0.5) * impulseStrength * 0.2
-                         };
-                     }
-                }
-                 return p;
-            });
-            
-            return [...nudgedParticles, ...newFragments].slice(-MAX_PARTICLES);
-        });
-
-        // 2. Update Board and Game State
+        // Update Board and Game State
         const newBoard = board.map(row => [...row] as Cell[]);
         landedPlayer.tetromino.forEach((row, y) => {
             row.forEach((value, x) => {
@@ -594,137 +585,103 @@ const App: React.FC = () => {
     
             const GRAVITY = 0.002;
             const AIR_FRICTION = 0.98;
-            const SURFACE_FRICTION = 0.85;
-            const BOUNCE_FACTOR = 0.6; // Increased from 0.2 for more energetic bounces
-            const PARTICLE_COLLISION_BOUNCE = 0.6;
+            const BOUNCE_FACTOR = 0.6;
             
-            let updatedParticles = prevParticles
-                .map((p): Particle => {
-                    if (p.type === 'smoke') {
+            const updatedParticles = prevParticles.map((p): Particle | null => {
+                switch (p.type) {
+                    case 'smoke': {
                         const life = p.life - 1;
+                        if (life <= 0) return null;
                         const swirl = Math.sin(p.y * 0.8 + p.initialLife) * 0.002;
                         const vx = (p.vx + swirl) * 0.98;
-                        const vy = (p.vy - 0.0003) * 0.98;
+                        const vy = p.vy * 0.98 - 0.0003;
                         const radius = p.radius + 0.002;
                         const x = p.x + vx;
                         const y = p.y + vy;
                         return { ...p, x, y, vx, vy, life, radius };
                     }
-    
-                    // Debris physics
-                    if (p.vx === 0 && p.vy === 0 && p.rotationSpeed === 0) {
-                        const checkY = Math.floor(p.y + p.boundingRadius + 0.01);
-                        const gridX = Math.floor(p.x);
-                        const onABlock = checkY >= 0 && checkY < BOARD_HEIGHT && gridX >= 0 && gridX < BOARD_WIDTH && board[checkY]?.[gridX]?.[1] === 'merged';
-                        if (onABlock) return p;
+                    case 'leaf': {
+                        const life = p.life - 1;
+                        if (life <= 0) return null;
+                        const vx = p.vx * 0.99 + Math.sin(p.y * 0.5) * p.flutter;
+                        const vy = p.vy * 0.99 + 0.0005; // Gentle gravity
+                        const x = p.x + vx;
+                        const y = p.y + vy;
+                        const rotation = p.rotation + p.rotationSpeed;
+                        const rotationSpeed = p.rotationSpeed * 0.99;
+                        return { ...p, x, y, vx, vy, life, rotation, rotationSpeed };
                     }
-    
-                    let { x, y, vx, vy, rotation, rotationSpeed } = p;
-    
-                    vy += GRAVITY;
-                    vx *= AIR_FRICTION;
-                    vy *= AIR_FRICTION;
-                    rotationSpeed *= AIR_FRICTION;
-                    
-                    let nextX = x + vx;
-                    let nextY = y + vy;
+                    case 'ember': {
+                        const life = p.life - 1;
+                        if (life <= 0) return null;
+                        const vx = p.vx * 0.96;
+                        const vy = p.vy * 0.99 - 0.0001; // Rise, but slow down
+                        const radius = p.radius * 0.98; // Shrink
+                        const x = p.x + vx;
+                        const y = p.y + vy;
+                        return { ...p, x, y, vx, vy, life, radius };
+                    }
+                    case 'sparkle': {
+                        const life = p.life - 1;
+                        if (life <= 0) return null;
+                        return { ...p, life };
+                    }
+                    case 'debris': {
+                        let { x, y, vx, vy, rotation, rotationSpeed } = p;
+        
+                        vy += GRAVITY;
+                        vx *= AIR_FRICTION;
+                        vy *= AIR_FRICTION;
+                        rotationSpeed *= AIR_FRICTION;
+                        
+                        let nextX = x + vx;
+                        let nextY = y + vy;
 
-                    // Wall and ceiling collisions
-                    if (nextX - p.boundingRadius < 0) {
-                        nextX = p.boundingRadius;
-                        vx = -vx * BOUNCE_FACTOR;
-                        rotationSpeed *= 0.5; // Dampen rotation on wall hit
-                    } else if (nextX + p.boundingRadius > BOARD_WIDTH) {
-                        nextX = BOARD_WIDTH - p.boundingRadius;
-                        vx = -vx * BOUNCE_FACTOR;
-                        rotationSpeed *= 0.5;
-                    }
-                
-                    if (nextY - p.boundingRadius < 0) {
-                        nextY = p.boundingRadius;
-                        vy = -vy * BOUNCE_FACTOR;
-                    }
-                    
-                    const gridX = Math.floor(nextX);
-                    const gridY = Math.floor(nextY + p.boundingRadius);
-                    const onABlock = vy > 0 && gridY >= 0 && gridY < BOARD_HEIGHT && gridX >= 0 && gridX < BOARD_WIDTH && board[gridY]?.[gridX]?.[1] === 'merged';
-    
-                    if (onABlock) {
-                        nextY = gridY - p.boundingRadius;
-                        vy = -vy * BOUNCE_FACTOR;
-                        if (Math.abs(vy) < 0.05) {
-                            vy = 0;
-                            vx *= SURFACE_FRICTION;
-                            rotationSpeed *= SURFACE_FRICTION;
+                        if (nextX - p.boundingRadius < 0) {
+                            nextX = p.boundingRadius;
+                            vx = -vx * BOUNCE_FACTOR;
+                            rotationSpeed *= 0.5;
+                        } else if (nextX + p.boundingRadius > BOARD_WIDTH) {
+                            nextX = BOARD_WIDTH - p.boundingRadius;
+                            vx = -vx * BOUNCE_FACTOR;
+                            rotationSpeed *= 0.5;
                         }
-                    }
                     
-                    if (Math.abs(vx) < 0.01) vx = 0;
-                    if (Math.abs(vy) < 0.01 && onABlock) vy = 0;
-                    if (Math.abs(rotationSpeed) < 0.01) rotationSpeed = 0;
-        
-                    return { ...p, x: nextX, y: nextY, vx, vy, rotation: rotation + rotationSpeed, rotationSpeed };
-                })
-                .filter(p => {
-                    if (p.type === 'smoke') {
-                        return p.life > 0;
-                    }
-                    // Debris particle cleanup: only remove when they fall off the bottom
-                    const isOutOfBounds = p.y > BOARD_HEIGHT + 5;
-                    return !isOutOfBounds;
-                });
-    
-            // Particle-particle collision (debris only)
-            for (let i = 0; i < updatedParticles.length; i++) {
-                for (let j = i + 1; j < updatedParticles.length; j++) {
-                    const p1 = updatedParticles[i];
-                    const p2 = updatedParticles[j];
-    
-                    if (p1.type === 'debris' && p2.type === 'debris') {
-                        const dx = p2.x - p1.x;
-                        const dy = p2.y - p1.y;
-                        const distance = Math.sqrt(dx * dx + dy * dy);
-                        const minDistance = p1.boundingRadius + p2.boundingRadius;
-        
-                        if (distance < minDistance) {
-                            const overlap = 0.5 * (minDistance - distance);
-                            p1.x -= overlap * (dx / distance);
-                            p1.y -= overlap * (dy / distance);
-                            p2.x += overlap * (dx / distance);
-                            p2.y += overlap * (dy / distance);
-        
-                            const angle = Math.atan2(dy, dx);
-                            const sin = Math.sin(angle);
-                            const cos = Math.cos(angle);
-        
-                            const v1_rot = { x: p1.vx * cos + p1.vy * sin, y: p1.vy * cos - p1.vx * sin };
-                            const v2_rot = { x: p2.vx * cos + p2.vy * sin, y: p2.vy * cos - p2.vx * sin };
-        
-                            const temp_vx = v1_rot.x;
-                            v1_rot.x = v2_rot.x * PARTICLE_COLLISION_BOUNCE;
-                            v2_rot.x = temp_vx * PARTICLE_COLLISION_BOUNCE;
-        
-                            p1.vx = v1_rot.x * cos - v1_rot.y * sin;
-                            p1.vy = v1_rot.y * cos + v1_rot.x * sin;
-                            p2.vx = v2_rot.x * cos - v2_rot.y * sin;
-                            p2.vy = v2_rot.y * cos + v2_rot.x * sin;
+                        if (nextY - p.boundingRadius < 0) {
+                            nextY = p.boundingRadius;
+                            vy = -vy * BOUNCE_FACTOR;
                         }
+                        
+                        if (Math.abs(vx) < 0.01) vx = 0;
+                        if (Math.abs(vy) < 0.01 && vy !== 0) vy = 0;
+                        if (Math.abs(rotationSpeed) < 0.01) rotationSpeed = 0;
+
+                        if (nextY > BOARD_HEIGHT + 5) {
+                            return null;
+                        }
+            
+                        return { ...p, x: nextX, y: nextY, vx, vy, rotation: rotation + rotationSpeed, rotationSpeed };
                     }
                 }
-            }
-    
+            }).filter((p): p is Particle => p !== null);
+                
             return updatedParticles;
         });
     
         physicsFrameRef.current = requestAnimationFrame(runPhysics);
-    }, [board]);
+    }, []);
 
     useEffect(() => {
         const newLevel = Math.floor(lines / 10) + 1;
         if (newLevel !== level) {
             setLevel(newLevel);
+            if (newLevel > 1 && newLevel % 5 === 1) {
+                const currentThemeIndex = THEMES.indexOf(backgroundTheme);
+                const nextThemeIndex = (currentThemeIndex + 1) % THEMES.length;
+                setBackgroundTheme(THEMES[nextThemeIndex]);
+            }
         }
-    }, [lines, level]);
+    }, [lines, level, backgroundTheme]);
     
     useEffect(() => {
         if (isPaused || isGameOver || isAnimating) {
@@ -822,6 +779,7 @@ const App: React.FC = () => {
                 )}
 
                 <div className="flex-1 relative">
+                    <BackgroundCanvas theme={backgroundTheme} />
                     <GameBoard board={displayBoard} />
                     {showBazinga && (
                         <div className="absolute inset-0 flex justify-center items-center pointer-events-none z-40">

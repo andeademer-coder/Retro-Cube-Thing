@@ -40,7 +40,7 @@ export type DebrisParticle = {
 };
 
 export type SmokeParticle = {
-  type: 'smoke';
+  type: 'smoke'; // Used for Wasteland dust and Volcanic smoke
   x: number;
   y: number;
   vx: number;
@@ -48,7 +48,46 @@ export type SmokeParticle = {
   radius: number;
   initialLife: number;
   life: number;
-  shade: number;
+  color: { r: number, g: number, b: number };
 };
 
-export type Particle = DebrisParticle | SmokeParticle;
+export type LeafParticle = {
+    type: 'leaf';
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    size: number;
+    initialLife: number;
+    life: number;
+    rotation: number;
+    rotationSpeed: number;
+    flutter: number;
+    color: string;
+};
+
+export type EmberParticle = {
+    type: 'ember';
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    radius: number;
+    initialLife: number;
+    life: number;
+};
+
+export type SparkleParticle = {
+    type: 'sparkle';
+    x: number;
+    y: number;
+    radius: number;
+    initialLife: number;
+    life: number;
+    color: string;
+};
+
+
+export type Particle = DebrisParticle | SmokeParticle | LeafParticle | EmberParticle | SparkleParticle;
+
+export type BackgroundTheme = 'FOREST' | 'WASTELAND' | 'VOLCANIC' | 'SPACE';

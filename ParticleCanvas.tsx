@@ -53,19 +53,13 @@ const ParticleCanvas: React.FC<ParticleCanvasProps> = ({ particles }) => {
         const cellHeight = canvas.height / BOARD_HEIGHT;
 
         context.clearRect(0, 0, canvas.width, canvas.height);
-            
+        
+        context.globalCompositeOperation = 'source-over';
+        
+        // Debris is drawn first
         particles.forEach(p => {
-            if (p.type === 'smoke') {
-                const lifeRatio = p.life / p.initialLife;
-                const alpha = Math.max(0, lifeRatio * 0.5); // Fade out, max alpha 0.5
-                
-                context.beginPath();
-                context.arc(p.x * cellWidth, p.y * cellHeight, p.radius * cellWidth, 0, Math.PI * 2);
-                const shadeValue = Math.floor(p.shade);
-                context.fillStyle = `rgba(${shadeValue}, ${shadeValue}, ${shadeValue}, ${alpha})`;
-                context.fill();
-            } else { // 'debris'
-                context.globalAlpha = 1;
+            if (p.type === 'debris') {
+                 context.globalAlpha = 1;
 
                 const burnedColor = shadeColor(p.color, p.shade);
                 
@@ -91,6 +85,89 @@ const ParticleCanvas: React.FC<ParticleCanvasProps> = ({ particles }) => {
                 context.restore();
             }
         });
+        
+        // Other particles are drawn on top with additive blending for glowy effects
+        context.globalCompositeOperation = 'lighter';
+
+        particles.forEach(p => {
+            switch (p.type) {
+                case 'smoke': {
+                    const lifeRatio = p.life / p.initialLife;
+                    const alpha = Math.max(0, lifeRatio * 0.5);
+                    context.beginPath();
+                    context.arc(p.x * cellWidth, p.y * cellHeight, p.radius * cellWidth, 0, Math.PI * 2);
+                    const { r, g, b } = p.color;
+                    context.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                    context.fill();
+                    break;
+                }
+                case 'leaf': {
+                    const lifeRatio = p.life / p.initialLife;
+                    const alpha = Math.max(0, lifeRatio * 0.8);
+                    context.save();
+                    context.translate(p.x * cellWidth, p.y * cellHeight);
+                    context.rotate(p.rotation);
+                    context.fillStyle = p.color;
+                    context.globalAlpha = alpha;
+                    const size = p.size * cellWidth;
+                    context.fillRect(-size / 2, -size / 4, size, size * 0.5);
+                    context.restore();
+                    context.globalAlpha = 1.0;
+                    break;
+                }
+                case 'ember': {
+                    const lifeRatio = p.life / p.initialLife;
+                    const alpha = Math.max(0, lifeRatio);
+                    context.beginPath();
+                    const x = p.x * cellWidth;
+                    const y = p.y * cellHeight;
+                    const radius = p.radius * cellWidth;
+                    const gradient = context.createRadialGradient(x, y, 0, x, y, radius);
+                    gradient.addColorStop(0, `rgba(255, 220, 100, ${alpha})`);
+                    gradient.addColorStop(0.8, `rgba(255, 120, 0, ${alpha * 0.5})`);
+                    gradient.addColorStop(1, `rgba(200, 50, 0, 0)`);
+                    context.fillStyle = gradient;
+                    context.arc(x, y, radius, 0, Math.PI * 2);
+                    context.fill();
+                    break;
+                }
+                case 'sparkle': {
+                    const lifeRatio = p.life / p.initialLife;
+                    const scale = Math.sin(lifeRatio * Math.PI); // Flashes in and out
+                    const alpha = scale;
+                    const radius = p.radius * scale * cellWidth;
+                    if (radius <= 0) break;
+
+                    context.save();
+                    context.translate(p.x * cellWidth, p.y * cellHeight);
+                    context.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
+                    context.fillStyle = p.color;
+                    context.globalAlpha = alpha;
+                    context.lineWidth = 2;
+
+                    context.beginPath();
+                    context.arc(0, 0, radius * 0.5, 0, Math.PI * 2);
+                    context.fill();
+                    
+                    context.rotate(Math.PI / 4);
+                    context.beginPath();
+                    context.moveTo(-radius * 1.5, 0);
+                    context.lineTo(radius * 1.5, 0);
+                    context.moveTo(0, -radius * 1.5);
+                    context.lineTo(0, radius * 1.5);
+                    context.stroke();
+                    context.restore();
+                    context.globalAlpha = 1.0;
+                    break;
+                }
+                case 'debris':
+                    // Already drawn
+                    break;
+            }
+        });
+        
+        context.globalCompositeOperation = 'source-over';
+
 
     }, [particles]);
 
