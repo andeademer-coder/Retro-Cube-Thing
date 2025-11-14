@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { BOARD_WIDTH, BOARD_HEIGHT, TETROMINOES, LINE_POINTS } from './constants';
 import type { Board, Player, Cell, CellValue } from './types';
@@ -98,18 +99,18 @@ const Modal: React.FC<ModalProps> = ({ title, children }) => (
 
 
 const App: React.FC = () => {
-    const [board, setBoard] = useState<Board>(createBoard());
+    const [board, setBoard] = useState<Board>(() => createBoard());
     const [player, setPlayer] = useState<Player>({
         pos: { x: 0, y: 0 },
         tetromino: [[0]],
         collided: false,
     });
-    const [nextTetromino, setNextTetromino] = useState(randomTetromino());
+    const [nextTetromino, setNextTetromino] = useState(() => randomTetromino());
     const [score, setScore] = useState(0);
     const [lines, setLines] = useState(0);
     const [level, setLevel] = useState(1);
     const [highScore, setHighScore] = useState(0);
-    const [isGameOver, setIsGameOver] = useState(false);
+    const [isGameOver, setIsGameOver] = useState(true); // Start in game over state
     const [isPaused, setIsPaused] = useState(false);
 
     const gameAreaRef = useRef<HTMLDivElement>(null);
@@ -126,7 +127,8 @@ const App: React.FC = () => {
                         newY >= BOARD_HEIGHT ||
                         newX < 0 ||
                         newX >= BOARD_WIDTH ||
-                        (boardToCheck[newY] && boardToCheck[newY][newX][1] !== 'clear')
+                        !boardToCheck[newY] || // Ensure row exists
+                        boardToCheck[newY][newX][1] !== 'clear'
                     ) {
                         return true;
                     }
@@ -137,48 +139,42 @@ const App: React.FC = () => {
     }, []);
     
     const startGame = useCallback(() => {
-        const newBoard = createBoard();
-        setBoard(newBoard);
+        setBoard(createBoard());
         setScore(0);
         setLines(0);
         setLevel(1);
-        setIsGameOver(false);
-        setIsPaused(false);
-
+        
         const firstPiece = randomTetromino();
         const secondPiece = randomTetromino();
 
-        const initialPlayer = {
-            pos: { x: BOARD_WIDTH / 2 - 2, y: 0 },
+        setPlayer({
+            pos: { x: BOARD_WIDTH / 2 - Math.floor(firstPiece[0].length / 2), y: 0 },
             tetromino: firstPiece,
             collided: false,
-        };
-
-        if (checkCollision(initialPlayer, newBoard, { x: 0, y: 0 })) {
-            setIsGameOver(true);
-        } else {
-            setPlayer(initialPlayer);
-        }
+        });
         
         setNextTetromino(secondPiece);
-
+        setIsGameOver(false);
+        setIsPaused(false);
         gameAreaRef.current?.focus();
-    }, [checkCollision]);
+    }, []);
     
     useEffect(() => {
-      // This effect now uses a stable `startGame` function and will only run once on mount.
-      startGame();
-    }, [startGame]);
-
-    useEffect(() => {
+        // Load high score on initial mount
         const savedHighScore = localStorage.getItem('retroBlockStackHighScore');
         if (savedHighScore) {
             setHighScore(parseInt(savedHighScore, 10));
         }
     }, []);
+    
+    // Auto-start the game on mount by showing the start screen
+    useEffect(() => {
+        setIsGameOver(true);
+    }, []);
+
 
     useEffect(() => {
-        if (isGameOver && score > highScore) {
+        if (!isGameOver && score > highScore) {
             setHighScore(score);
             localStorage.setItem('retroBlockStackHighScore', score.toString());
         }
@@ -192,7 +188,6 @@ const App: React.FC = () => {
     };
     
     const handlePieceLanded = useCallback((landedPlayer: Player) => {
-        // 1. Create a new board with the landed piece merged
         const newBoard = board.map(row => [...row] as Cell[]);
         landedPlayer.tetromino.forEach((row, y) => {
             row.forEach((value, x) => {
@@ -206,7 +201,6 @@ const App: React.FC = () => {
             });
         });
 
-        // 2. Check for and clear any completed lines
         let clearedLines = 0;
         const sweptBoard = newBoard.reduce((acc, row) => {
             if (row.every(cell => cell[0] !== 0)) {
@@ -218,28 +212,25 @@ const App: React.FC = () => {
             return acc;
         }, [] as Board);
 
-        // 3. Update score and lines
         if (clearedLines > 0) {
             setScore(prev => prev + LINE_POINTS[clearedLines - 1] * level);
             setLines(prev => prev + clearedLines);
         }
-
-        // 4. Create the next player piece and check for game over against the new board
+        
+        const newTetromino = nextTetromino;
         const newPlayer = {
-            pos: { x: BOARD_WIDTH / 2 - 2, y: 0 },
-            tetromino: nextTetromino,
+            pos: { x: BOARD_WIDTH / 2 - Math.floor(newTetromino[0].length / 2), y: 0 },
+            tetromino: newTetromino,
             collided: false,
         };
         
+        setBoard(sweptBoard);
         if (checkCollision(newPlayer, sweptBoard, { x: 0, y: 0 })) {
             setIsGameOver(true);
         } else {
             setPlayer(newPlayer);
             setNextTetromino(randomTetromino());
         }
-
-        // 5. Finally, update the board state
-        setBoard(sweptBoard);
 
     }, [board, level, nextTetromino, checkCollision]);
 
@@ -295,6 +286,9 @@ const App: React.FC = () => {
             ...player,
             pos: { x: player.pos.x, y: player.pos.y + dropHeight }
         };
+        // The player has landed, so we set their collided state and call handlePieceLanded in the next render cycle.
+        // This prevents race conditions with state updates.
+        setPlayer(landedPlayer);
         handlePieceLanded(landedPlayer);
     }, [board, checkCollision, player, handlePieceLanded]);
     
@@ -320,13 +314,18 @@ const App: React.FC = () => {
         else if (e.key === 'ArrowRight') movePlayer(1);
         else if (e.key === 'ArrowDown') drop();
         else if (e.key === 'ArrowUp') playerRotate();
-        else if (e.key === ' ') hardDrop();
+        else if (e.key === ' ') {
+            e.preventDefault(); // Prevent spacebar from scrolling the page
+            hardDrop();
+        }
     };
 
     useEffect(() => {
         const newLevel = Math.floor(lines / 10) + 1;
-        setLevel(newLevel);
-    }, [lines]);
+        if (newLevel !== level) {
+            setLevel(newLevel);
+        }
+    }, [lines, level]);
     
     useEffect(() => {
         if (isPaused || isGameOver) {
@@ -334,7 +333,7 @@ const App: React.FC = () => {
             return;
         }
 
-        const currentDropTime = 1000 / level + 200;
+        const currentDropTime = Math.max(50, 1000 * Math.pow(0.85, level - 1));
 
         dropIntervalRef.current = window.setInterval(() => {
             drop();
@@ -348,7 +347,6 @@ const App: React.FC = () => {
     // Create the display board on every render
     const displayBoard = board.map(row => [...row] as Cell[]);
     
-    // Draw the player piece and ghost piece if the game is not over
     if (!isGameOver) {
         // Calculate ghost piece position
         let ghostY = player.pos.y;
@@ -396,11 +394,11 @@ const App: React.FC = () => {
               onBlur={() => {if (!isGameOver) setIsPaused(true)}}
             >
                 {isGameOver && (
-                    <Modal title="Game Over">
-                        <p className="text-xl mb-2">Final Score: {score}</p>
+                    <Modal title="Retro Block Stack">
+                        <p className="text-xl mb-2">Score: {score}</p>
                         <p className="text-lg text-cyan-400 mb-4">High Score: {highScore}</p>
                         <button onMouseDown={(e) => e.preventDefault()} onClick={startGame} className="px-6 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-lg font-semibold">
-                            Play Again
+                            Play Game
                         </button>
                     </Modal>
                 )}
@@ -418,7 +416,7 @@ const App: React.FC = () => {
 
                 <aside className="w-full md:w-56 flex flex-col gap-4 flex-shrink-0">
                     <GameStats score={score} lines={lines} level={level} highScore={highScore} />
-                    <Preview tetromino={nextTetromino} />
+                    {!isGameOver && <Preview tetromino={nextTetromino} />}
                     <button onMouseDown={(e) => e.preventDefault()} onClick={togglePause} className="w-full p-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-lg font-semibold">
                        {isPaused ? 'Resume' : 'Pause'} (P)
                     </button>
