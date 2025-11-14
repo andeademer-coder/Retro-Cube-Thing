@@ -57,35 +57,28 @@ const ParticleCanvas: React.FC<ParticleCanvasProps> = ({ particles }) => {
         particles.forEach(p => {
             context.globalAlpha = 1;
 
-            const particleSizeX = cellWidth * p.size;
-            const particleSizeY = cellHeight * p.size;
+            const particleWidth = cellWidth * p.width;
+            const particleHeight = cellHeight * p.height;
 
-            if (p.isSquare) {
-                const burnedColor = shadeColor(p.color, -30);
-                
-                context.save();
-                context.translate(p.x * cellWidth, p.y * cellHeight);
-                context.rotate(p.rotation);
-                
-                // Main "burned" body
-                context.fillStyle = burnedColor;
-                context.fillRect(-particleSizeX / 2, -particleSizeY / 2, particleSizeX, particleSizeY);
-                
-                // "Crack" effect
-                context.strokeStyle = 'rgba(0,0,0,0.4)';
-                context.lineWidth = 1;
-                context.beginPath();
-                context.moveTo(-particleSizeX / 2, -particleSizeY / 4);
-                context.lineTo(particleSizeX / 2, particleSizeY / 4);
-                context.stroke();
+            const burnedColor = shadeColor(p.color, -30);
+            
+            context.save();
+            context.translate(p.x * cellWidth, p.y * cellHeight);
+            context.rotate(p.rotation);
+            
+            // Main "burned" body
+            context.fillStyle = burnedColor;
+            context.fillRect(-particleWidth / 2, -particleHeight / 2, particleWidth, particleHeight);
+            
+            // "Crack" effect
+            context.strokeStyle = 'rgba(0,0,0,0.4)';
+            context.lineWidth = 1;
+            context.beginPath();
+            context.moveTo(-particleWidth / 2, -particleHeight / 4);
+            context.lineTo(particleWidth / 2, particleHeight / 4);
+            context.stroke();
 
-                context.restore();
-            } else { // Fallback for circular particles if ever used
-                context.fillStyle = p.color;
-                context.beginPath();
-                context.arc(p.x * cellWidth, p.y * cellHeight, particleSizeX / 2, 0, Math.PI * 2);
-                context.fill();
-            }
+            context.restore();
         });
 
     }, [particles]);

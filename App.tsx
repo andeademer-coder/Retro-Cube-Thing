@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { BOARD_WIDTH, BOARD_HEIGHT, TETROMINOES, LINE_POINTS } from './constants';
 import type { Board, Player, Cell, CellValue, Particle } from './types';
@@ -104,6 +102,7 @@ const Modal: React.FC<ModalProps> = ({ title, children }) => (
     </div>
 );
 
+const MAX_PARTICLES = 1000;
 
 const App: React.FC = () => {
     const [board, setBoard] = useState<Board>(() => createBoard());
@@ -206,24 +205,29 @@ const App: React.FC = () => {
                 const cellValue = boardState[y][x][0];
                 if (cellValue !== 0) {
                     const color = TETROMINOES[cellValue].colorValue;
-                    const fragmentCount = 6 + Math.floor(Math.random() * 3); // 6-8 fragments per block
+                    const fragmentCount = 8 + Math.floor(Math.random() * 5); // 8-12 fragments per block
                     for (let i = 0; i < fragmentCount; i++) {
+                        const particleX = x + Math.random();
+                        const particleY = y + Math.random();
+                        const width = Math.random() * 0.4 + 0.1;  // Rectangular fragments
+                        const height = Math.random() * 0.4 + 0.1;
+
                         newParticles.push({
-                            x: x + 0.5,
-                            y: y + 0.5,
-                            vx: (Math.random() - 0.5) * 1.2,
-                            vy: -Math.random() * 1.5 - 0.5,
+                            x: particleX,
+                            y: particleY,
+                            vx: (particleX - (x + 0.5)) * 0.5 + (Math.random() - 0.5) * 0.2,
+                            vy: (particleY - (y + 0.5)) * 0.5 - Math.random() * 0.6,
                             color: color,
-                            size: Math.random() * 0.25 + 0.15,  // Smaller fragments
+                            width,
+                            height,
                             rotation: Math.random() * Math.PI * 2,
                             rotationSpeed: (Math.random() - 0.5) * 0.2,
-                            isSquare: true,
                         });
                     }
                 }
             }
         });
-        setParticles(prev => [...prev, ...newParticles]);
+        setParticles(prev => [...prev, ...newParticles].slice(-MAX_PARTICLES));
     }, []);
 
 
@@ -257,18 +261,20 @@ const App: React.FC = () => {
             const newFragments: Particle[] = [];
             if (particlesToShatter.length > 0) {
                 particlesToShatter.forEach(shatteredParticle => {
-                    const count = shatteredParticle.size > 0.3 ? 4 : 2; // Shatter into smaller pieces
+                    const originalArea = shatteredParticle.width * shatteredParticle.height;
+                    const count = originalArea > 0.09 ? 4 : 2; // Shatter into smaller pieces if it was big
                     for (let i = 0; i < count; i++) {
+                         const sizeRatio = 0.6;
                         newFragments.push({
                             x: shatteredParticle.x + (Math.random() - 0.5) * 0.5,
                             y: shatteredParticle.y + (Math.random() - 0.5) * 0.5,
-                            vx: (Math.random() - 0.5) * 1.5,
-                            vy: (Math.random() - 0.5) * 1.5,
+                            vx: (Math.random() - 0.5) * 0.5,
+                            vy: (Math.random() - 0.5) * 0.5,
                             color: shatteredParticle.color,
-                            size: shatteredParticle.size * 0.6,
+                            width: shatteredParticle.width * sizeRatio,
+                            height: shatteredParticle.height * sizeRatio,
                             rotation: Math.random() * Math.PI * 2,
                             rotationSpeed: (Math.random() - 0.5) * 0.4,
-                            isSquare: true,
                         });
                     }
                 });
@@ -290,15 +296,15 @@ const App: React.FC = () => {
                      const impulseStrength = (nudgeRadius - minDistance) / nudgeRadius; // Stronger impulse for closer particles
                      return {
                         ...p,
-                        vx: p.vx + (Math.random() - 0.5) * impulseStrength * 0.8,
-                        vy: p.vy - Math.random() * impulseStrength * 1.0,
+                        vx: p.vx + (Math.random() - 0.5) * impulseStrength * 0.3,
+                        vy: p.vy - Math.random() * impulseStrength * 0.4,
                         rotationSpeed: p.rotationSpeed + (Math.random() - 0.5) * impulseStrength * 0.2
                      };
                  }
                  return p;
             });
             
-            return [...nudgedParticles, ...newFragments];
+            return [...nudgedParticles, ...newFragments].slice(-MAX_PARTICLES);
         });
 
         // 2. Update Board and Game State
@@ -541,23 +547,25 @@ const App: React.FC = () => {
         setParticles(prevParticles => {
             if (prevParticles.length === 0) return [];
     
-            const GRAVITY = 0.025;
+            const GRAVITY = 0.002;
             const AIR_FRICTION = 0.98;
             const SURFACE_FRICTION = 0.85;
             const BOUNCE_FACTOR = 0.2;
+            const PARTICLE_COLLISION_BOUNCE = 0.6;
             
-            const updatedParticles = prevParticles.map(p => {
+            let updatedParticles = prevParticles.map(p => {
+                const effectiveSize = Math.max(p.width, p.height);
+
                 // If particle is at rest, check if it should stay at rest.
                 if (p.vx === 0 && p.vy === 0 && p.rotationSpeed === 0) {
-                    const onTheFloor = p.y >= BOARD_HEIGHT - p.size / 2;
+                    const onTheFloor = p.y >= BOARD_HEIGHT - effectiveSize / 2;
                     
                     // Check one pixel below the particle's bottom edge to see if it's on a block
-                    const checkY = Math.floor(p.y + p.size / 2 + 0.01);
+                    const checkY = Math.floor(p.y + effectiveSize / 2 + 0.01);
                     const gridX = Math.floor(p.x);
                     
                     const onABlock = checkY >= 0 && checkY < BOARD_HEIGHT && gridX >= 0 && gridX < BOARD_WIDTH && board[checkY] && board[checkY][gridX][1] === 'merged';
                     
-                    // If it's resting on a stable surface, don't apply physics.
                     if (onTheFloor || onABlock) {
                         return p;
                     }
@@ -565,60 +573,91 @@ const App: React.FC = () => {
 
                 let { x, y, vx, vy, rotation, rotationSpeed } = p;
     
-                // Apply physics
                 vy += GRAVITY;
                 vx *= AIR_FRICTION;
+                vy *= AIR_FRICTION;
                 rotationSpeed *= AIR_FRICTION;
                 
                 let nextX = x + vx;
                 let nextY = y + vy;
                 
-                // Wall collisions
-                if (nextX >= BOARD_WIDTH - p.size / 2) {
-                    nextX = BOARD_WIDTH - p.size / 2;
+                if (nextX >= BOARD_WIDTH - effectiveSize / 2) {
+                    nextX = BOARD_WIDTH - effectiveSize / 2;
                     vx = -vx * BOUNCE_FACTOR;
-                } else if (nextX <= p.size / 2) {
-                    nextX = p.size / 2;
+                } else if (nextX <= effectiveSize / 2) {
+                    nextX = effectiveSize / 2;
                     vx = -vx * BOUNCE_FACTOR;
                 }
 
-                // Floor and Block collisions
-                const onTheFloor = nextY >= BOARD_HEIGHT - p.size / 2;
+                const onTheFloor = nextY >= BOARD_HEIGHT - effectiveSize / 2;
                 const gridX = Math.floor(nextX);
                 const gridY = Math.floor(nextY);
                 const onABlock = vy > 0 && gridY >=0 && gridY < BOARD_HEIGHT && gridX >=0 && gridX < BOARD_WIDTH && board[gridY] && board[gridY][gridX][1] === 'merged';
 
                 if (onTheFloor || onABlock) {
-                    if (onTheFloor) {
-                        nextY = BOARD_HEIGHT - p.size / 2;
-                    } else {
-                        nextY = gridY - p.size / 2;
-                    }
+                    if (onTheFloor) nextY = BOARD_HEIGHT - effectiveSize / 2;
+                    else nextY = gridY - effectiveSize / 2;
+
                     vy = -vy * BOUNCE_FACTOR;
                     
-                    // Apply surface friction and handle resting state
-                    if (Math.abs(vy) < 0.1) {
-                        vy = 0; // Prevent jittering
+                    if (Math.abs(vy) < 0.05) {
+                        vy = 0;
                         vx *= SURFACE_FRICTION;
                         rotationSpeed *= SURFACE_FRICTION;
                     }
                 }
                 
-                // Stop tiny movements to come to a rest
                 if (Math.abs(vx) < 0.01) vx = 0;
                 if (Math.abs(vy) < 0.01 && (onTheFloor || onABlock)) vy = 0;
                 if (Math.abs(rotationSpeed) < 0.01) rotationSpeed = 0;
     
-                return {
-                    ...p,
-                    x: nextX,
-                    y: nextY,
-                    vx,
-                    vy,
-                    rotation: rotation + rotationSpeed,
-                    rotationSpeed,
-                };
+                return { ...p, x: nextX, y: nextY, vx, vy, rotation: rotation + rotationSpeed, rotationSpeed };
             });
+    
+            // Particle-particle collision
+            for (let i = 0; i < updatedParticles.length; i++) {
+                for (let j = i + 1; j < updatedParticles.length; j++) {
+                    const p1 = updatedParticles[i];
+                    const p2 = updatedParticles[j];
+    
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const p1EffectiveSize = Math.max(p1.width, p1.height);
+                    const p2EffectiveSize = Math.max(p2.width, p2.height);
+                    const minDistance = (p1EffectiveSize + p2EffectiveSize) / 2;
+    
+                    if (distance < minDistance) {
+                        // Resolve overlap
+                        const overlap = 0.5 * (minDistance - distance);
+                        p1.x -= overlap * (dx / distance);
+                        p1.y -= overlap * (dy / distance);
+                        p2.x += overlap * (dx / distance);
+                        p2.y += overlap * (dy / distance);
+    
+                        // Collision response (using rotation for simplicity)
+                        const angle = Math.atan2(dy, dx);
+                        const sin = Math.sin(angle);
+                        const cos = Math.cos(angle);
+    
+                        // Rotate p1's velocity
+                        const v1_rot = { x: p1.vx * cos + p1.vy * sin, y: p1.vy * cos - p1.vx * sin };
+                        // Rotate p2's velocity
+                        const v2_rot = { x: p2.vx * cos + p2.vy * sin, y: p2.vy * cos - p2.vx * sin };
+    
+                        // Swap x velocities (collision axis)
+                        const temp_vx = v1_rot.x;
+                        v1_rot.x = v2_rot.x * PARTICLE_COLLISION_BOUNCE;
+                        v2_rot.x = temp_vx * PARTICLE_COLLISION_BOUNCE;
+    
+                        // Rotate velocities back
+                        p1.vx = v1_rot.x * cos - v1_rot.y * sin;
+                        p1.vy = v1_rot.y * cos + v1_rot.x * sin;
+                        p2.vx = v2_rot.x * cos - v2_rot.y * sin;
+                        p2.vy = v2_rot.y * cos + v2_rot.x * sin;
+                    }
+                }
+            }
     
             return updatedParticles;
         });

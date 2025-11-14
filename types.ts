@@ -31,8 +31,8 @@ export type Particle = {
   vx: number;
   vy: number;
   color: string;
-  size: number;
+  width: number;
+  height: number;
   rotation: number;
   rotationSpeed: number;
-  isSquare: boolean;
 };
