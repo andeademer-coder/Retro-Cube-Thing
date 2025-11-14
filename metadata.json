@@ -1,0 +1,5 @@
+{
+  "name": "Retro Block Stack",
+  "description": "A simple, retro-styled Tetris-like block stacking game built with React and Tailwind CSS. Control the falling blocks to clear lines and score points before the stack reaches the top.",
+  "requestFramePermissions": []
+}
