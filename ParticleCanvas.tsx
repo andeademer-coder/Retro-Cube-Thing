@@ -55,30 +55,41 @@ const ParticleCanvas: React.FC<ParticleCanvasProps> = ({ particles }) => {
         context.clearRect(0, 0, canvas.width, canvas.height);
             
         particles.forEach(p => {
-            context.globalAlpha = 1;
+            if (p.type === 'smoke') {
+                const lifeRatio = p.life / p.initialLife;
+                const alpha = Math.max(0, lifeRatio * 0.5); // Fade out, max alpha 0.5
+                
+                context.beginPath();
+                context.arc(p.x * cellWidth, p.y * cellHeight, p.radius * cellWidth, 0, Math.PI * 2);
+                const shadeValue = Math.floor(p.shade);
+                context.fillStyle = `rgba(${shadeValue}, ${shadeValue}, ${shadeValue}, ${alpha})`;
+                context.fill();
+            } else { // 'debris'
+                context.globalAlpha = 1;
 
-            const particleWidth = cellWidth * p.width;
-            const particleHeight = cellHeight * p.height;
+                const burnedColor = shadeColor(p.color, p.shade);
+                
+                context.save();
+                context.translate(p.x * cellWidth, p.y * cellHeight);
+                context.rotate(p.rotation);
+                
+                context.fillStyle = burnedColor;
+                context.strokeStyle = 'rgba(0,0,0,0.4)';
+                context.lineWidth = 1;
 
-            const burnedColor = shadeColor(p.color, -30);
-            
-            context.save();
-            context.translate(p.x * cellWidth, p.y * cellHeight);
-            context.rotate(p.rotation);
-            
-            // Main "burned" body
-            context.fillStyle = burnedColor;
-            context.fillRect(-particleWidth / 2, -particleHeight / 2, particleWidth, particleHeight);
-            
-            // "Crack" effect
-            context.strokeStyle = 'rgba(0,0,0,0.4)';
-            context.lineWidth = 1;
-            context.beginPath();
-            context.moveTo(-particleWidth / 2, -particleHeight / 4);
-            context.lineTo(particleWidth / 2, particleHeight / 4);
-            context.stroke();
-
-            context.restore();
+                if (p.shapePoints.length > 2) {
+                    context.beginPath();
+                    context.moveTo(p.shapePoints[0].x * cellWidth, p.shapePoints[0].y * cellHeight);
+                    for (let i = 1; i < p.shapePoints.length; i++) {
+                        context.lineTo(p.shapePoints[i].x * cellWidth, p.shapePoints[i].y * cellHeight);
+                    }
+                    context.closePath();
+                    context.fill();
+                    context.stroke();
+                }
+    
+                context.restore();
+            }
         });
 
     }, [particles]);

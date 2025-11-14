@@ -25,14 +25,30 @@ export type TetrominoesMap = {
   Z: TetrominoShape;
 };
 
-export type Particle = {
+export type DebrisParticle = {
+  type: 'debris';
   x: number;
   y: number;
   vx: number;
   vy: number;
   color: string;
-  width: number;
-  height: number;
+  shapePoints: { x: number; y: number }[];
+  boundingRadius: number;
   rotation: number;
   rotationSpeed: number;
+  shade: number;
 };
+
+export type SmokeParticle = {
+  type: 'smoke';
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  initialLife: number;
+  life: number;
+  shade: number;
+};
+
+export type Particle = DebrisParticle | SmokeParticle;
